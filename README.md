@@ -1,67 +1,150 @@
-Graphlish
+# Graphlish
 
-Graphlish is a backend-focused image dictionary system that combines image retrieval and AI-generated explanations to help users understand English vocabulary more intuitively.
+AI-powered visual vocabulary learning backend that maps words to real-world concepts.
 
-The project is designed from a backend engineering perspective, focusing on API design, cloud integration, and AI-powered content generation.
+## Intro
 
-⸻
+Graphlish is an AI-powered vocabulary learning backend project that helps users understand English words through visual concept mapping.
 
-Key Features
-	•	Image-based vocabulary lookup
-	•	Supports cold-start and warm-start queries
-	•	Images are retrieved from a third-party image API and stored in cloud object storage
-	•	Cloud-based image storage
-	•	Uses Cloudflare R2 for persistent image storage
-	•	Backend returns directly accessible image URLs for frontend consumption
-	•	AI-powered explanations
-	•	Automatically generates word explanations and example sentences using external AI APIs
-	•	Supports simplified re-explanations based on user feedback when the initial explanation is unclear
-	•	RESTful backend APIs
-	•	Designed for easy frontend integration
-	•	Clean separation between image retrieval and AI explanation logic
+Instead of relying on long dictionary-style definitions, Graphlish focuses on high-density learning signals: a small set of carefully selected images and short explanations that represent how a word is most commonly used in everyday contexts.
 
-⸻
+The goal is not to list every possible meaning of a word, but to highlight the most frequent and practical meanings so learners can quickly connect a word with the real-world concept it represents, reducing the need for mental translation.
 
-System Overview
+This repository contains the original Java-based prototype of Graphlish. The current version is being expanded into a hybrid Java + Python architecture, where Java acts as the main backend service and Python powers the AI-based image evaluation pipeline.
 
-When a user queries a word:
-	1.	The backend first checks the database for existing records
-	2.	If the word does not exist:
-	•	Images are retrieved from a third-party image service
-	•	Images are uploaded to cloud storage (Cloudflare R2)
-	•	AI services are invoked to generate explanations and example sentences
-	3.	The processed data (image URLs, explanations, examples) is stored and returned via REST APIs
-	4.	If the word already exists, cached results are returned directly (warm start)
+## Project Status
 
-⸻
+Graphlish is currently under active development.
 
-Tech Stack
-	•	Backend: Java, Spring Boot
-	•	Database: MySQL
-	•	Cloud Storage: Cloudflare R2
-	•	AI Integration: External AI APIs
-	•	Architecture: RESTful APIs, layered backend design
+The AI evaluation pipeline is implemented and functional, while the image ranking system and full Java backend integration are still in progress.
 
-## Configuration
+## System Overview
 
-This project uses environment variables to manage sensitive credentials.
+Graphlish processes a vocabulary query through a multi-stage image evaluation pipeline to identify images that best represent the meaning of a word.
 
-Required environment variables:
+Pipeline overview:
 
-- R2_ENDPOINT
-- R2_ACCESS_KEY
-- R2_SECRET_KEY
-- R2_PUBLIC_DOMAIN
-- UNSPLASH_ACCESS_KEY
-- ZHIPU_API_KEY
+Word Query → Image Retrieval (Unsplash API) → Metadata Parsing → L1 Quality Filter → L2 Semantic Filter → L3 Clarity Evaluation → Ranking → Cloudflare R2 Storage → API Response
 
-Example:
+## Image Evaluation Pipeline
 
-```bash
-export R2_ENDPOINT=...
-export R2_ACCESS_KEY=...
-export R2_SECRET_KEY=...
-export R2_PUBLIC_DOMAIN=...
+The Graphlish backend processes candidate images through several evaluation stages to ensure that the final results clearly represent the target word.
 
-export UNSPLASH_ACCESS_KEY=...
-export ZHIPU_API_KEY=...
+### L1 Filter – Basic Image Quality Filtering
+
+The first stage removes obviously unsuitable images based on metadata returned by the image provider.
+
+Examples of filtered cases include:
+
+- Missing image URLs
+- Missing width or height metadata
+- Extremely unusual aspect ratios
+- Very low resolution images
+
+This stage ensures that only technically valid images proceed to semantic evaluation.
+
+---
+
+### L2 Filter – Semantic Relevance Evaluation
+
+In this stage, an AI model evaluates whether the image is semantically related to the queried word.
+
+Each image receives a relevance score indicating how closely the image matches the target word.
+
+Images with low semantic relevance are rejected before entering later stages.
+
+Caching mechanisms are used to avoid repeated AI evaluations for identical image-word pairs.
+
+---
+
+### L3 Evaluation – Visual Clarity Assessment
+
+This stage evaluates how clearly the image represents the target word.
+
+The evaluation considers factors such as:
+
+- Whether the image clearly represents the concept of the word
+- Whether it is a typical and recognizable example
+- Whether it would help a learner correctly understand the word
+
+The current implementation uses a lightweight model and serves mainly as a coarse filtering stage before ranking.
+
+---
+
+### Ranking Stage (In Development)
+
+The ranking stage will become the core component of the system.
+
+Instead of relying on a single evaluation score, the ranking algorithm will combine multiple signals to determine the best images for each vocabulary query.
+
+Planned ranking signals include:
+
+- semantic relevance
+- visual clarity
+- typicality of the concept
+- ambiguity detection
+
+The goal of this stage is to select a small set of high-signal images that best represent the real-world meaning of the word.
+
+## Architecture
+
+Graphlish follows a service-oriented architecture that separates the main backend service from the AI evaluation pipeline.
+
+Java (Spring Boot) acts as the primary backend service responsible for user-facing APIs, authentication, and system orchestration.
+
+Python (FastAPI) runs the AI image evaluation pipeline and exposes internal APIs that can be called by the Java backend.
+
+The Python service can be independently developed and scaled without affecting the main backend.
+
+### Architecture Diagram
+<p align="center">
+  <img src="docs/architecture.png" width="543">
+</p>
+
+The system follows a service-oriented architecture where the Java backend communicates with the Python AI service through internal APIs.
+
+Architecture overview:
+
+Client → Java Backend (Spring Boot) → Python AI Service (FastAPI) → Image Evaluation Pipeline → Cloudflare R2
+
+## Tech Stack
+
+**Backend**
+- Java (Spring Boot)
+- Python (FastAPI)
+
+**AI Integration**
+- LLM APIs (image semantic evaluation)
+
+**Data & Storage**
+- Cloudflare R2 (object storage)
+
+**External Services**
+- Unsplash API (image retrieval)
+
+## Design Principles
+
+### Visual Concept Mapping
+
+Graphlish focuses on connecting vocabulary with real-world concepts rather than relying only on textual definitions.  
+The goal is to help learners directly associate a word with the object or concept it represents.
+
+### High-Density Learning Signals
+
+Instead of presenting every possible dictionary meaning, Graphlish prioritizes the most common and practical meanings that learners encounter in everyday usage.
+
+This reduces noise and allows learners to quickly grasp the core concept of a word.
+
+### Reduce Translation Thinking
+
+By mapping words directly to visual concepts, Graphlish aims to reduce the need for mental translation into a learner's native language.
+
+## Future Work
+
+Planned improvements include:
+
+- Multi-dimensional image ranking system
+- Improved ranking algorithms for image selection
+- More advanced AI evaluation models
+- Improved caching strategies
+- Java backend integration with the AI service
