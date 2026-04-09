@@ -15,11 +15,12 @@ This README reflects the architecture and design of the current system.
 
 Graphlish is a visual vocabulary learning system designed to help learners understand English words through high-quality real-world images rather than long dictionary-style definitions.
 
-Given a word query, Graphlish retrieves candidate images from external sources, applies multi-stage filtering, uses AI-based scoring to evaluate semantic relevance, visual clarity, and other quality signals for ranking. The system then returns a small set of high-signal images that best represent the target word.
+Given a word query, Graphlish retrieves candidate images from external sources, applies multi-stage filtering and uses AI-based scoring to evaluate semantic relevance, visual clarity, and other quality signals for ranking. The system then returns a small set of high-signal images that best represent the target word.
 
 The current version is deployed on AWS and supports end-to-end interaction through a simple web interface.
 
 ## 📸 Example Output
+
 User query: "apple"
 
 The system retrieves ~50 candidate images and returns the top-ranked results based on semantic relevance, clarity, and other quality signals.
@@ -171,9 +172,9 @@ Applying advanced AI models to all candidate images would be prohibitively expen
 
 Graphlish adopts a two-stage scoring strategy:
 
-•	a lightweight stage for coarse filtering
+-	a lightweight stage for coarse filtering
 
-•	a more advanced stage for fine-grained ranking
+-	a more advanced stage for fine-grained ranking
 
 This significantly reduces the number of expensive AI calls while maintaining high-quality results.
 
@@ -185,11 +186,11 @@ Basic image properties (e.g., resolution, aspect ratio) can be efficiently handl
 
 By combining both approaches, Graphlish achieves:
 
-•	lower computational cost
+-	lower computational cost
 
-•	better performance
+-	better performance
 
-•	more controllable ranking behavior
+-	more controllable ranking behavior
 
 ### Why offline batch processing?
 
@@ -197,11 +198,11 @@ The system is designed to process vocabulary sets in batches (via scripts), allo
 
 This approach:
 
-•	improves throughput
+-	improves throughput
 
-•	enables better resource utilization
+-	enables better resource utilization
 
-•	avoids repeated AI computation for the same inputs
+-	avoids repeated AI computation for the same inputs
 
 
 
