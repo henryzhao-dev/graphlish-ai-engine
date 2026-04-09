@@ -1,126 +1,209 @@
 # Graphlish
 
-AI-powered visual vocabulary learning backend that maps words to real-world concepts.
+AI-powered vocabulary learning system that maps English words to real-world visual concepts through image retrieval, filtering, and ranking.
 
-## Intro
+## ⚠️ Note
 
-Graphlish is an AI-powered vocabulary learning backend project that helps users understand English words through visual concept mapping.
+This repository contains an earlier Java-based prototype of Graphlish.
 
-Instead of relying on long dictionary-style definitions, Graphlish focuses on high-density learning signals: a small set of carefully selected images and short explanations that represent how a word is most commonly used in everyday contexts.
+The current version of Graphlish has been fully redesigned and implemented in Python with a production-oriented architecture (AWS, Docker, Nginx, PostgreSQL, AI pipeline).
 
-The goal is not to list every possible meaning of a word, but to highlight the most frequent and practical meanings so learners can quickly connect a word with the real-world concept it represents, reducing the need for mental translation.
+Due to ongoing development, the latest version is maintained in a private repository.  
+This README reflects the architecture and design of the current system.
 
-This repository contains the original Java-based prototype of Graphlish. The current version is being expanded into a hybrid Java + Python architecture, where Java acts as the main backend service and Python powers the AI-based image evaluation pipeline.
+## Overview
+
+Graphlish is a visual vocabulary learning system designed to help learners understand English words through high-quality real-world images rather than long dictionary-style definitions.
+
+Given a word query, Graphlish retrieves candidate images from external sources, applies multi-stage filtering, uses AI-based scoring to evaluate semantic relevance, visual clarity, and other quality signals for ranking. The system then returns a small set of high-signal images that best represent the target word.
+
+The current version is deployed on AWS and supports end-to-end interaction through a simple web interface.
+
+## 📸 Example Output
+User query: "apple"
+
+The system retrieves ~50 candidate images and returns the top-ranked results based on semantic relevance, clarity, and other quality signals.
+
+![Graphlish Output](docs/Graphlish%20Screenshot%20.png)
 
 ## Project Status
 
-Graphlish is currently under active development.
+Graphlish is currently functional as an end-to-end system.
 
-The AI evaluation pipeline is implemented and functional, while the image ranking system and full Java backend integration are still in progress.
+Implemented components include:
 
-## System Overview
+- image retrieval from external APIs
+- multi-stage filtering pipeline
+- ranking system for top-K image selection
+- PostgreSQL-based result storage
+- AWS deployment with Docker and Nginx
+- simple frontend for public access and result visualization
 
-Graphlish processes a vocabulary query through a multi-stage image evaluation pipeline to identify images that best represent the meaning of a word.
+## ⚙️ System Architecture
 
-Pipeline overview:
+Graphlish is designed as a pipeline-based system with a separation between **offline processing** and **real-time query serving**, enabling efficient AI usage while maintaining low-latency user experience.
 
-Word Query → Image Retrieval (Unsplash API) → Metadata Parsing → L1 Quality Filter → L2 Semantic Filter → L3 Clarity Evaluation → Ranking → Cloudflare R2 Storage → API Response
+### End-to-End Flow
 
-## Image Evaluation Pipeline
+[//]: # (User → Frontend → Nginx → FastAPI Backend → PostgreSQL → Response  )
 
-The Graphlish backend processes candidate images through several evaluation stages to ensure that the final results clearly represent the target word.
+[//]: # (                                 ↓  )
 
-### L1 Filter – Basic Image Quality Filtering
+[//]: # (                       Offline Image Pipeline)
 
-The first stage removes obviously unsuitable images based on metadata returned by the image provider.
+```mermaid
+graph LR
+    User["User"]
+    Frontend["Frontend"]
+    Nginx["Nginx"]
+    FastAPI["FastAPI Backend"]
+    PostgreSQL["PostgreSQL"]
+    Response["Response"]
+    Pipeline["Offline Image Pipeline"]
+    
+    User --> Frontend --> Nginx --> FastAPI --> PostgreSQL --> Response
+    FastAPI --> Pipeline
+```
 
-Examples of filtered cases include:
+### 🧩 Core Components
 
-- Missing image URLs
-- Missing width or height metadata
-- Extremely unusual aspect ratios
-- Very low resolution images
+#### Frontend + Gateway
 
-This stage ensures that only technically valid images proceed to semantic evaluation.
+- A lightweight web interface allows users to input vocabulary queries
+- Nginx serves as a reverse proxy and handles frontend hosting
 
----
+#### Backend Service (FastAPI)
 
-### L2 Filter – Semantic Relevance Evaluation
+- Handles incoming user requests
+- Retrieves precomputed results from PostgreSQL
+- Returns top-ranked image URLs to the frontend
 
-In this stage, an AI model evaluates whether the image is semantically related to the queried word.
+#### Offline Image Pipeline
 
-Each image receives a relevance score indicating how closely the image matches the target word.
+The core image processing and AI computation are handled in an offline pipeline to avoid high latency during user queries.
 
-Images with low semantic relevance are rejected before entering later stages.
+Word → Image Retrieval → Filter Scoring → Candidate Selection → Ranking Scoring → Top-K → Storage
 
-Caching mechanisms are used to avoid repeated AI evaluations for identical image-word pairs.
+## Image Processing Strategy
 
----
+Graphlish uses a **two-stage hybrid scoring pipeline** to balance cost, performance, and result quality.
 
-### L3 Evaluation – Visual Clarity Assessment
+### Stage 1: Filter Scoring (Hybrid Coarse Selection)
 
-This stage evaluates how clearly the image represents the target word.
+- Retrieves ~50 candidate images from external APIs (e.g., Unsplash)
+- Applies a **hybrid scoring strategy** combining:
+    - rule-based signals (e.g., resolution, aspect ratio, metadata quality)
+    - lightweight AI evaluation (for basic semantic relevance and content understanding)
+- Produces a coarse score for each image and selects the top 10–20 candidates
 
-The evaluation considers factors such as:
+This stage reduces noise efficiently while keeping computational cost low.
 
-- Whether the image clearly represents the concept of the word
-- Whether it is a typical and recognizable example
-- Whether it would help a learner correctly understand the word
+### Stage 2: Ranking Scoring (Fine-grained AI Evaluation)
 
-The current implementation uses a lightweight model and serves mainly as a coarse filtering stage before ranking.
+- Applies a more advanced AI model to the filtered candidate set
+- Performs deeper analysis using multiple signals, including:
+    - semantic relevance
+    - visual clarity
+    - object-level complexity (e.g., number of distractors)
+- Produces final scores to rank images and select top-K results (typically 3–5)
 
----
+This stage focuses on maximizing ranking precision while limiting expensive model usage.
 
-### Ranking Stage (In Development)
+## ⚡ Cold-start / Hot-path Design
 
-The ranking stage will become the core component of the system.
+To handle the high latency of AI-based processing, Graphlish separates offline computation from online serving:
 
-Instead of relying on a single evaluation score, the ranking algorithm will combine multiple signals to determine the best images for each vocabulary query.
+- **Cold-start (offline batch processing)**:
+    - triggered via batch scripts
+    - processes vocabulary sets in advance
+    - performs full pipeline scoring and ranking
 
-Planned ranking signals include:
+- **Hot-path (online query serving)**:
+    - retrieves precomputed results from PostgreSQL
+    - returns results with near real-time latency
 
-- semantic relevance
-- visual clarity
-- typicality of the concept
-- ambiguity detection
+This design ensures fast user experience while keeping AI processing scalable.
 
-The goal of this stage is to select a small set of high-signal images that best represent the real-world meaning of the word.
+## 🛠️ Deployment
 
-## Architecture
-
-Graphlish follows a service-oriented architecture that separates the main backend service from the AI evaluation pipeline.
-
-Java (Spring Boot) acts as the primary backend service responsible for user-facing APIs, authentication, and system orchestration.
-
-Python (FastAPI) runs the AI image evaluation pipeline and exposes internal APIs that can be called by the Java backend.
-
-The Python service can be independently developed and scaled without affecting the main backend.
-
-### Architecture Diagram
-<p align="center">
-  <img src="docs/architecture.png" width="543">
-</p>
-
-The system follows a service-oriented architecture where the Java backend communicates with the Python AI service through internal APIs.
-
-Architecture overview:
-
-Client → Java Backend (Spring Boot) → Python AI Service (FastAPI) → Image Evaluation Pipeline → Cloudflare R2
+- Hosted on **AWS EC2**
+- Backend services containerized with **Docker**
+- **Nginx** handles reverse proxy and frontend hosting
+- PostgreSQL runs on the server for persistent storage
 
 ## Tech Stack
 
 **Backend**
-- Java (Spring Boot)
 - Python (FastAPI)
 
+**Frontend**
+- HTML / JavaScript
+
 **AI Integration**
-- LLM APIs (image semantic evaluation)
+- LLM APIs for image scoring and evaluation
 
 **Data & Storage**
-- Cloudflare R2 (object storage)
+- PostgreSQL
+- Cloudflare R2
+
+**Infrastructure & Deployment**
+- AWS EC2
+- Docker
+- Nginx
 
 **External Services**
-- Unsplash API (image retrieval)
+- Unsplash API
+
+## 💡 Design Decisions
+
+### Why not real-time AI processing?
+
+AI-based image evaluation is computationally expensive and introduces high latency (several minutes per word in testing).
+Performing this process in real time would make the system unusable for end users.
+
+Instead, Graphlish uses an offline pipeline (cold-start) to precompute results, and serves user queries through a fast retrieval path (hot-path).
+
+This design ensures near real-time response while keeping AI computation scalable.
+
+### Why a two-stage scoring pipeline?
+
+Applying advanced AI models to all candidate images would be prohibitively expensive and slow.
+
+Graphlish adopts a two-stage scoring strategy:
+
+•	a lightweight stage for coarse filtering
+
+•	a more advanced stage for fine-grained ranking
+
+This significantly reduces the number of expensive AI calls while maintaining high-quality results.
+
+### Why combine rule-based and AI-based scoring?
+
+Not all evaluation signals require AI.
+
+Basic image properties (e.g., resolution, aspect ratio) can be efficiently handled using rule-based methods, while semantic understanding requires AI models.
+
+By combining both approaches, Graphlish achieves:
+
+•	lower computational cost
+
+•	better performance
+
+•	more controllable ranking behavior
+
+### Why offline batch processing?
+
+The system is designed to process vocabulary sets in batches (via scripts), allowing large-scale precomputation.
+
+This approach:
+
+•	improves throughput
+
+•	enables better resource utilization
+
+•	avoids repeated AI computation for the same inputs
+
+
 
 ## Design Principles
 
@@ -143,8 +226,8 @@ By mapping words directly to visual concepts, Graphlish aims to reduce the need 
 
 Planned improvements include:
 
-- Multi-dimensional image ranking system
-- Improved ranking algorithms for image selection
-- More advanced AI evaluation models
-- Improved caching strategies
-- Java backend integration with the AI service
+- CLIP / embedding-based ranking experiments
+- improved object-level scoring and ambiguity detection
+- Redis or database-level caching optimization
+- better frontend UI/UX
+- user personalization and learning history
